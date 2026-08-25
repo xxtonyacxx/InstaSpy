@@ -126,11 +126,25 @@ usernameInput.addEventListener('keypress', (e) => {
 
 searchBtn.addEventListener('click', goToConfirm);
 
-function generateFallbackStats() {
+// Used only when Instagram cannot be reached. Seeded by the handle so the same
+// profile always shows the same numbers -- with Math.random() they changed on
+// every reload, which gave the guesswork away instantly.
+function generateFallbackStats(username) {
+    let seed = 0;
+    const key = String(username || '');
+    for (let i = 0; i < key.length; i++) {
+        seed = (seed * 31 + key.charCodeAt(i)) >>> 0;
+    }
+
+    const next = () => {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        return seed / 4294967296;
+    };
+
     return {
-        posts: Math.floor(Math.random() * 200) + 1,
-        followers: Math.floor(Math.random() * 15000 + 500),
-        following: Math.floor(Math.random() * 1500) + 50,
+        posts: Math.floor(next() * 200) + 1,
+        followers: Math.floor(next() * 15000 + 500),
+        following: Math.floor(next() * 1500) + 50,
     };
 }
 
@@ -249,7 +263,7 @@ function goToConfirm() {
 
         if (profileData && !profileData.error) {
             // Use real data
-            const fallback = generateFallbackStats();
+            const fallback = generateFallbackStats(currentUsername);
             currentStats = {
                 posts: profileData.posts || fallback.posts,
                 followers: profileData.followers || fallback.followers,
@@ -259,7 +273,7 @@ function goToConfirm() {
             currentFullName = profileData.fullName || currentUsername;
         } else {
             // Fallback to generated data
-            currentStats = generateFallbackStats();
+            currentStats = generateFallbackStats(currentUsername);
             currentProfilePic = '';
             currentFullName = currentUsername;
         }

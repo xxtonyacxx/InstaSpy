@@ -326,6 +326,48 @@ class InstagramDataProvider {
     }
 
     /**
+     * Full profile (name, picture, counts) via HikerAPI.
+     *
+     * Instagram blocks datacenter IPs, so the free scrape and the public API
+     * both fail once the app is deployed -- this is the only path that works
+     * from a host like Vercel. Returns null when no key is set or the lookup
+     * fails, so callers can fall back to the free methods.
+     */
+    async fetchProfileViaHiker(username) {
+        if (!this.hikerKey) return null;
+
+        const clean = username.replace(/^@+/, '').trim().toLowerCase();
+        const cacheKey = `instagram:hikerprofile:${clean}`;
+        const cached = this._getCached(cacheKey);
+        if (cached !== null) return cached;
+
+        const data = await this._hikerGet('/v2/user/by/username', { username: clean });
+        const u = data && (data.user || data);
+        if (!u || !u.username) return null;
+
+        // HikerAPI mirrors Instagram's private API shape, but some endpoints
+        // return the GraphQL `edge_*` shape instead -- accept either.
+        const count = (flat, edge) => {
+            if (typeof u[flat] === 'number') return u[flat];
+            return (u[edge] && u[edge].count) || 0;
+        };
+
+        const profile = {
+            username: u.username,
+            fullName: u.full_name || '',
+            profilePic: (u.profile_pic_url_hd || u.profile_pic_url || '').replace(/&amp;/g, '&'),
+            posts: count('media_count', 'edge_owner_to_timeline_media'),
+            followers: count('follower_count', 'edge_followed_by'),
+            following: count('following_count', 'edge_follow'),
+            bio: u.biography || '',
+            isPrivate: !!u.is_private
+        };
+
+        this._setCache(cacheKey, profile);
+        return profile;
+    }
+
+    /**
      * Real accounts the person FOLLOWS, via HikerAPI.
      *
      * Instagram's own public endpoints never expose a follow list without a

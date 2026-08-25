@@ -2,6 +2,7 @@ const express = require('express');
 const https = require('https');
 const http = require('http');
 const path = require('path');
+const instagramDataProvider = require('./instagramDataProvider');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -30,7 +31,20 @@ app.get('/api/profile/:username', async (req, res) => {
     }
 });
 
-function fetchInstagramProfile(username) {
+async function fetchInstagramProfile(username) {
+    // HikerAPI first when a key is configured: Instagram blocks datacenter IPs,
+    // so the two free methods below only work from a home connection.
+    try {
+        const viaHiker = await instagramDataProvider.fetchProfileViaHiker(username);
+        if (viaHiker) return viaHiker;
+    } catch (err) {
+        console.warn(`[HikerAPI] profile lookup failed for ${username}:`, err.message);
+    }
+
+    return fetchInstagramProfileFree(username);
+}
+
+function fetchInstagramProfileFree(username) {
     return new Promise((resolve, reject) => {
         const options = {
             hostname: 'www.instagram.com',
@@ -269,7 +283,6 @@ function decodeHTMLEntities(str) {
         .replace(/&#064;/g, '@');
 }
 
-const instagramDataProvider = require('./instagramDataProvider');
 
 // ===== Deterministic Direct Message generation =====
 // Every searched profile gets its own stable set of conversations: same username
