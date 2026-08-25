@@ -31,6 +31,49 @@ app.get('/api/profile/:username', async (req, res) => {
     }
 });
 
+// Temporary: reports exactly what Instagram answers from wherever this runs,
+// so a production failure can be told apart from a local one.
+app.get('/api/_diag/:username', async (req, res) => {
+    const username = req.params.username.replace('@', '').trim();
+    const started = Date.now();
+
+    const probe = (label, hostname, reqPath, headers) => new Promise((resolve) => {
+        const t0 = Date.now();
+        const r = https.get({ hostname, path: reqPath, headers }, (resp) => {
+            let body = '';
+            resp.on('data', c => { body += c; });
+            resp.on('end', () => resolve({
+                metodo: label,
+                status: resp.statusCode,
+                ms: Date.now() - t0,
+                redirect: resp.headers.location || null,
+                amostra: body.slice(0, 180)
+            }));
+        });
+        r.on('error', (e) => resolve({ metodo: label, erro: e.message, ms: Date.now() - t0 }));
+        r.setTimeout(9000, () => { r.destroy(); resolve({ metodo: label, erro: 'timeout 9s', ms: Date.now() - t0 }); });
+    });
+
+    const resultados = await Promise.all([
+        probe('html-scrape', 'www.instagram.com', `/${encodeURIComponent(username)}/`, {
+            'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+            'Accept-Language': 'en-US,en;q=0.9'
+        }),
+        probe('api-web-profile', 'i.instagram.com', `/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`, {
+            'User-Agent': 'Instagram 275.0.0.27.98 Android',
+            'X-IG-App-ID': '936619743392459'
+        })
+    ]);
+
+    res.json({
+        onde: process.env.VERCEL ? 'vercel' : 'local',
+        regiao: process.env.VERCEL_REGION || 'n/a',
+        node: process.version,
+        totalMs: Date.now() - started,
+        resultados
+    });
+});
+
 async function fetchInstagramProfile(username) {
     // HikerAPI first when a key is configured: Instagram blocks datacenter IPs,
     // so the two free methods below only work from a home connection.
