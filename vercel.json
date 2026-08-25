@@ -3,5 +3,8 @@
     "server.js": {
       "includeFiles": "{index.html,styles.css,app.js,images/**,instagramDataProvider.js}"
     }
-  }
+  },
+  "regions": [
+    "gru1"
+  ]
 }
