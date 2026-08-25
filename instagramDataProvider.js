@@ -339,11 +339,18 @@ class InstagramDataProvider {
         const clean = username.replace(/^@+/, '').trim().toLowerCase();
         const cacheKey = `instagram:hikerprofile:${clean}`;
         const cached = this._getCached(cacheKey);
+        // `false` is a remembered miss -- see below
+        if (cached === false) return null;
         if (cached !== null) return cached;
 
         const data = await this._hikerGet('/v2/user/by/username', { username: clean });
         const u = data && (data.user || data);
-        if (!u || !u.username) return null;
+        if (!u || !u.username) {
+            // A handle that does not exist still costs a request, and every
+            // caller would ask again. Remember the miss for the cache window.
+            this._setCache(cacheKey, false);
+            return null;
+        }
 
         // HikerAPI mirrors Instagram's private API shape, but some endpoints
         // return the GraphQL `edge_*` shape instead -- accept either.
@@ -354,6 +361,8 @@ class InstagramDataProvider {
 
         const profile = {
             username: u.username,
+            // Kept so _fetchFromHikerAPI does not pay for the same lookup twice
+            pk: u.pk || u.id || null,
             fullName: u.full_name || '',
             profilePic: (u.profile_pic_url_hd || u.profile_pic_url || '').replace(/&amp;/g, '&'),
             posts: count('media_count', 'edge_owner_to_timeline_media'),
@@ -378,9 +387,10 @@ class InstagramDataProvider {
     async _fetchFromHikerAPI(username, limit = 10) {
         if (!this.hikerKey) return [];
 
-        const profile = await this._hikerGet('/v2/user/by/username', { username });
-        const user = profile && (profile.user || profile);
-        const userId = user && (user.pk || user.id);
+        // Goes through the cached profile lookup: billing is per request, and
+        // the account id it returns is the only thing needed here.
+        const profile = await this.fetchProfileViaHiker(username);
+        const userId = profile && profile.pk;
         if (!userId) {
             console.warn(`[HikerAPI] no user id for ${username}`);
             return [];
