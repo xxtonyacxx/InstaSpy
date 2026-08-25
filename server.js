@@ -4,7 +4,7 @@ const http = require('http');
 const path = require('path');
 
 const app = express();
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
 
 // Serve static files
 app.use(express.static(path.join(__dirname)));
@@ -579,6 +579,12 @@ app.get('/api/proxy-image', (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`\n🔍 InstaSpy server running at http://localhost:${PORT}\n`);
-});
+// Vercel imports this file as a serverless function via the export below;
+// it never runs this listener there, only for local `npm run dev`.
+if (!process.env.VERCEL) {
+    app.listen(PORT, () => {
+        console.log(`\n🔍 InstaSpy server running at http://localhost:${PORT}\n`);
+    });
+}
+
+module.exports = app;
