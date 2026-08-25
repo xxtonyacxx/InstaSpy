@@ -1,0 +1,10 @@
+.git
+.gitignore
+node_modules
+.env.local
+.claude
+stalkeia_*.js
+stalkeia_*.html
+profile_dump.json
+public
+*.log
