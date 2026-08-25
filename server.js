@@ -31,46 +31,100 @@ app.get('/api/profile/:username', async (req, res) => {
     }
 });
 
-// Temporary: reports exactly what Instagram answers from wherever this runs,
-// so a production failure can be told apart from a local one.
+// Readiness check: proves, from wherever this actually runs, whether every
+// piece the app depends on is reachable. Open it after setting HIKER_API_KEY
+// to confirm production works before trusting the funnel to real traffic.
 app.get('/api/_diag/:username', async (req, res) => {
     const username = req.params.username.replace('@', '').trim();
     const started = Date.now();
+    const etapas = [];
 
-    const probe = (label, hostname, reqPath, headers) => new Promise((resolve) => {
+    const head = (label, url) => new Promise((resolve) => {
         const t0 = Date.now();
-        const r = https.get({ hostname, path: reqPath, headers }, (resp) => {
-            let body = '';
-            resp.on('data', c => { body += c; });
-            resp.on('end', () => resolve({
-                metodo: label,
+        let parsed;
+        try { parsed = new URL(url); } catch { return resolve({ etapa: label, erro: 'url invalida' }); }
+        const r = https.get({
+            hostname: parsed.hostname,
+            path: parsed.pathname + parsed.search,
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*,*/*' }
+        }, (resp) => {
+            resp.resume();
+            resolve({
+                etapa: label,
                 status: resp.statusCode,
                 ms: Date.now() - t0,
-                redirect: resp.headers.location || null,
-                amostra: body.slice(0, 180)
-            }));
+                tipo: resp.headers['content-type'] || null,
+                bytes: resp.headers['content-length'] || null
+            });
         });
-        r.on('error', (e) => resolve({ metodo: label, erro: e.message, ms: Date.now() - t0 }));
-        r.setTimeout(9000, () => { r.destroy(); resolve({ metodo: label, erro: 'timeout 9s', ms: Date.now() - t0 }); });
+        r.on('error', (e) => resolve({ etapa: label, erro: e.message, ms: Date.now() - t0 }));
+        r.setTimeout(9000, () => { r.destroy(); resolve({ etapa: label, erro: 'timeout 9s' }); });
     });
 
-    const resultados = await Promise.all([
-        probe('html-scrape', 'www.instagram.com', `/${encodeURIComponent(username)}/`, {
-            'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
-            'Accept-Language': 'en-US,en;q=0.9'
-        }),
-        probe('api-web-profile', 'i.instagram.com', `/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`, {
-            'User-Agent': 'Instagram 275.0.0.27.98 Android',
-            'X-IG-App-ID': '936619743392459'
-        })
-    ]);
+    // 1. Is a key configured at all?
+    const temChave = !!process.env.HIKER_API_KEY;
+    etapas.push({ etapa: 'chave-hikerapi', configurada: temChave });
+
+    // 2. Profile lookup -- whichever source answers
+    let perfil = null;
+    let fonte = 'nenhuma';
+    const t1 = Date.now();
+    try {
+        perfil = await instagramDataProvider.fetchProfileViaHiker(username);
+        if (perfil) fonte = 'hikerapi';
+    } catch (e) { /* fall through to the free path below */ }
+
+    if (!perfil) {
+        try {
+            perfil = await fetchInstagramProfileFree(username);
+            if (perfil) fonte = 'instagram-direto';
+        } catch (e) { /* neither source answered */ }
+    }
+
+    etapas.push({
+        etapa: 'buscar-perfil',
+        fonte,
+        ms: Date.now() - t1,
+        nome: (perfil && perfil.fullName) || null,
+        posts: (perfil && perfil.posts) || null,
+        seguidores: (perfil && perfil.followers) || null,
+        seguindo: (perfil && perfil.following) || null
+    });
+
+    // 3. The photo: HikerAPI hands over a URL, but THIS server still has to
+    // download it. A blocked CDN would leave every avatar empty.
+    if (perfil && perfil.profilePic) {
+        etapas.push(await head('baixar-foto', perfil.profilePic));
+    } else {
+        etapas.push({ etapa: 'baixar-foto', pulado: 'sem url de foto' });
+    }
+
+    // 4. The follow list that fills the stories row
+    const t2 = Date.now();
+    let relacionados = [];
+    try {
+        relacionados = await instagramDataProvider.getRelatedProfiles(username, 10);
+    } catch (e) { /* reported as zero below */ }
+    etapas.push({
+        etapa: 'perfis-relacionados',
+        ms: Date.now() - t2,
+        total: relacionados.length,
+        exemplos: relacionados.slice(0, 3).map(p => p.username)
+    });
+
+    const perfilOk = fonte !== 'nenhuma';
+    const fotoOk = etapas.some(e => e.etapa === 'baixar-foto' && e.status === 200);
 
     res.json({
         onde: process.env.VERCEL ? 'vercel' : 'local',
         regiao: process.env.VERCEL_REGION || 'n/a',
-        node: process.version,
         totalMs: Date.now() - started,
-        resultados
+        veredito: perfilOk && fotoOk
+            ? 'TUDO OK - dados e fotos reais funcionando'
+            : perfilOk
+                ? 'PARCIAL - dados reais, mas a foto nao carrega'
+                : 'FALHA - nenhuma fonte respondeu, o site vai mostrar numeros inventados',
+        etapas
     });
 });
 
