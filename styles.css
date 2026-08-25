@@ -1412,7 +1412,7 @@ body {
     object-fit: cover;
 }
 
-.direct-note-item:not(.is-own) .note-avatar-wrapper img {
+.direct-note-item:not(.is-own):not(.real-photo) .note-avatar-wrapper img {
     filter: blur(6px);
     -webkit-filter: blur(6px);
     clip-path: circle(50%);

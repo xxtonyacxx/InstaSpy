@@ -519,6 +519,7 @@ app.get('/api/direct/:username', async (req, res) => {
                     username: user.username,
                     displayName: user.username.substring(0, 3) + '*****',
                     profilePic: user.profilePicture,
+                    isReal: user.isReal,
                     isOwn: false,
                     isMusicNote: isMusic,
                     music: isMusic ? { title: "Coração Partido", artist: "Grupo Menos É Mais" } : null,

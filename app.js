@@ -779,7 +779,7 @@ function renderDirectNotes(notes) {
 
     notes.forEach((note, idx) => {
         const item = document.createElement('div');
-        item.className = `direct-note-item ${note.isOwn ? 'is-own' : ''}`;
+        item.className = `direct-note-item ${note.isOwn ? 'is-own' : ''} ${note.isReal ? 'real-photo' : ''}`;
 
         // Bubble
         const bubbleCont = document.createElement('div');
@@ -811,6 +811,8 @@ function renderDirectNotes(notes) {
         img.alt = note.displayName || note.username;
         img.onerror = () => {
             img.src = `/images/avatars/fallback/av-fallback-${(idx % 14) + 1}.jpg`;
+            // Real photo failed to load -- blur the stand-in that replaces it
+            item.classList.remove('real-photo');
             img.onerror = null;
         };
         avatarWrapper.appendChild(img);
