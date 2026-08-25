@@ -54,43 +54,6 @@ const PUBLIC_FIGURE_TOKENS = [
     'poker', 'cassino', 'apostas', 'talentos', 'familia', 'equipe', 'staff'
 ];
 
-// Hand-picked circles for the profiles used in demos.
-const TONY_CIRCLE = [
-                    { username: 'emd_mariia', fullName: 'Maria Eduarda', isCloseFriends: true, location: 'Vila Velha, Espírito Santo' },
-                    { username: 'anacolen_', fullName: 'Ana', isCloseFriends: false, location: 'Belo Horizonte, Brazil' },
-                    { username: 'emillysouzapinheiro4', fullName: 'Emilly Pinheiro', isCloseFriends: true, location: 'Vitória, Espírito Santo' },
-                    { username: 'felipelona_', fullName: 'Felipe Lona', isCloseFriends: false, location: 'Governador Valadares, Minas Gerais' },
-                    { username: 'jrzin.pele22', fullName: 'Jr Cria', isCloseFriends: true, location: 'Rio de Janeiro, Brazil' },
-                    { username: 'dhysilva131922', fullName: 'Diana Bernardino', isCloseFriends: true, location: 'São Joaquim de Bicas' },
-                    { username: 'gabrielbaiareis', fullName: 'Baia', isCloseFriends: true, location: 'Betim, Minas Gerais' },
-                    { username: 'p.lope.xz', fullName: 'Pablin', isCloseFriends: false, location: 'São Paulo, Brazil' },
-                    { username: 'pedro_henriquee', fullName: 'Pedro Henrique', isCloseFriends: false, location: 'Goiânia, Goiás' }
-                ];
-
-const PYETRA_CIRCLE = [
-                    { username: 'rhuann_venancio', fullName: 'Rhuann Venancio', isCloseFriends: true, location: 'Rio de Janeiro, Brazil' },
-                    { username: 'paiefilho.sitio', fullName: 'Sítio Pai & Filho', isCloseFriends: false, location: 'Rio de Janeiro, Brazil' },
-                    { username: 'duda_costaa', fullName: 'Eduarda Costa', isCloseFriends: true, location: 'Niterói, Rio de Janeiro' },
-                    { username: 'matheusrj_', fullName: 'Matheus Souza', isCloseFriends: false, location: 'Barra da Tijuca, Rio de Janeiro' },
-                    { username: 'leticia.silvarj', fullName: 'Letícia Silva', isCloseFriends: true, location: 'Recreio, Rio de Janeiro' },
-                    { username: 'brunovinicius', fullName: 'Bruno Vinicius', isCloseFriends: false, location: 'Rio de Janeiro, Brazil' },
-                    { username: 'gabriel.mouraaa', fullName: 'Gabriel Moura', isCloseFriends: false, location: 'Rio de Janeiro, Brazil' },
-                    { username: 'marina_souzarj', fullName: 'Marina Souza', isCloseFriends: true, location: 'Copacabana, Rio de Janeiro' },
-                    { username: 'carol_marquesrj', fullName: 'Carol Marques', isCloseFriends: true, location: 'Ipanema, Rio de Janeiro' },
-                    { username: 'lucas_rangel', fullName: 'Lucas Rangel', isCloseFriends: false, location: 'Rio de Janeiro, Brazil' }
-                ];
-
-const ALAN_CIRCLE = [
-                    { username: 'nicollas.silva_', fullName: 'Nicollas Quiessi', isCloseFriends: false, location: 'São Joaquim de Bicas' },
-                    { username: 'dhysilva131922', fullName: 'Diana Bernardino', isCloseFriends: true, location: 'São Joaquim de Bicas' },
-                    { username: 'gabrielbaiareis', fullName: 'Baia', isCloseFriends: true, location: 'Betim, Minas Gerais' },
-                    { username: 'thaique.eduarda_', fullName: 'Thaique Eduarda', isCloseFriends: false, location: 'Contagem, Minas Gerais' },
-                    { username: 'havilamarcelo_12', fullName: 'Havilá Marcelo', isCloseFriends: false, location: 'Belo Horizonte, Brazil' },
-                    { username: 'p.lope.xz', fullName: 'Pablin', isCloseFriends: false, location: 'São Paulo, Brazil' },
-                    { username: 'matheus_oliveiraa', fullName: 'Matheus Oliveira', isCloseFriends: true, location: 'Curitiba, Brazil' },
-                    { username: 'larissacpos', fullName: 'Larissa', isCloseFriends: false, location: 'Campinas, São Paulo' }
-                ];
-
 function looksLikePublicFigure(candidate, target) {
     const uname = (candidate || '').toLowerCase();
     const owner = (target || '').toLowerCase();
@@ -191,23 +154,12 @@ class InstagramDataProvider {
             }
         }
 
-        // 3. Hand-picked accounts for the profiles used in demos
-        if (profiles.length < limit) {
-            if (cleanUsername.includes('tonyz') || cleanUsername.includes('antony')) {
-                profiles = profiles.concat(TONY_CIRCLE);
-            } else if (cleanUsername.includes('pyetra')) {
-                profiles = profiles.concat(PYETRA_CIRCLE);
-            } else if (cleanUsername.includes('alan') || cleanUsername.includes('covre')) {
-                profiles = profiles.concat(ALAN_CIRCLE);
-            }
-        }
-
-        // 4. Top up with generated profiles so the row is always full
+        // 3. Top up with generated profiles so the row is always full
         if (profiles.length < limit) {
             profiles = profiles.concat(this._generateDeterministicProfiles(cleanUsername, limit));
         }
 
-        // 5. Clean, validate, filter and deduplicate
+        // 4. Clean, validate, filter and deduplicate
         const uniqueProfiles = [];
         const seen = new Set();
 
@@ -220,9 +172,11 @@ class InstagramDataProvider {
             uniqueProfiles.push({
                 username: uname,
                 fullName: p.fullName || p.full_name || uname,
-                // Every avatar is blurred in the UI, so a real picture would look
-                // no different from a fallback -- not worth a request per profile.
-                profilePicture: `/images/avatars/fallback/av-fallback-${(uname.length % 14) + 1}.jpg`,
+                profilePicture: p.profilePicture
+                    || `/images/avatars/fallback/av-fallback-${(uname.length % 14) + 1}.jpg`,
+                // Only a picture that really came from Instagram is shown sharp;
+                // generated stand-ins stay blurred so nothing looks invented.
+                isReal: !!p.profilePicture,
                 isCloseFriends: !!p.isCloseFriends,
                 location: p.location || 'Brasil'
             });

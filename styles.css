@@ -852,7 +852,7 @@ body {
 }
 
 /* Blurred story profile pictures (except 'Seu story') */
-.story-item:not(.your-story) .story-avatar-img img {
+.story-item:not(.your-story):not(.real-photo) .story-avatar-img img {
     filter: blur(6px);
     -webkit-filter: blur(6px);
     clip-path: circle(50%);
@@ -2071,36 +2071,10 @@ body {
 }
 
 /* Guarantees */
-.guarantees {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
 
-.guarantee-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    text-align: left;
-}
 
-.guarantee-icon {
-    font-size: 24px;
-    flex-shrink: 0;
-    margin-top: 2px;
-}
 
-.guarantee-item strong {
-    display: block;
-    font-size: 14px;
-    margin-bottom: 2px;
-}
 
-.guarantee-item p {
-    font-size: 13px;
-    color: var(--text-gray);
-    line-height: 1.4;
-}
 
 /* Sticky Bar */
 .sticky-bar {

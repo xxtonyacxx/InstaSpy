@@ -434,7 +434,8 @@ const InstagramRelatedProfiles = {
 
         profiles.forEach((profile, index) => {
             const storyItem = document.createElement('div');
-            storyItem.className = 'story-item clickable-section';
+            storyItem.className = 'story-item clickable-section'
+                + (profile.isReal ? ' real-photo' : '');
 
             const isClose = !!profile.isCloseFriends;
             const storyCircle = document.createElement('div');
@@ -448,8 +449,10 @@ const InstagramRelatedProfiles = {
             img.alt = profile.username;
             img.loading = 'lazy';
             img.onerror = () => {
+                // The real photo failed to load -- blur the stand-in that replaces it
                 const num = (index % 14) + 1;
                 img.src = `/images/avatars/fallback/av-fallback-${num}.jpg`;
+                storyItem.classList.remove('real-photo');
                 img.onerror = null;
             };
 

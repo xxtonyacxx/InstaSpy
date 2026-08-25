@@ -31,103 +31,6 @@ app.get('/api/profile/:username', async (req, res) => {
     }
 });
 
-// Readiness check: proves, from wherever this actually runs, whether every
-// piece the app depends on is reachable. Open it after setting HIKER_API_KEY
-// to confirm production works before trusting the funnel to real traffic.
-app.get('/api/_diag/:username', async (req, res) => {
-    const username = req.params.username.replace('@', '').trim();
-    const started = Date.now();
-    const etapas = [];
-
-    const head = (label, url) => new Promise((resolve) => {
-        const t0 = Date.now();
-        let parsed;
-        try { parsed = new URL(url); } catch { return resolve({ etapa: label, erro: 'url invalida' }); }
-        const r = https.get({
-            hostname: parsed.hostname,
-            path: parsed.pathname + parsed.search,
-            headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*,*/*' }
-        }, (resp) => {
-            resp.resume();
-            resolve({
-                etapa: label,
-                status: resp.statusCode,
-                ms: Date.now() - t0,
-                tipo: resp.headers['content-type'] || null,
-                bytes: resp.headers['content-length'] || null
-            });
-        });
-        r.on('error', (e) => resolve({ etapa: label, erro: e.message, ms: Date.now() - t0 }));
-        r.setTimeout(9000, () => { r.destroy(); resolve({ etapa: label, erro: 'timeout 9s' }); });
-    });
-
-    // 1. Is a key configured at all?
-    const temChave = !!process.env.HIKER_API_KEY;
-    etapas.push({ etapa: 'chave-hikerapi', configurada: temChave });
-
-    // 2. Profile lookup -- whichever source answers
-    let perfil = null;
-    let fonte = 'nenhuma';
-    const t1 = Date.now();
-    try {
-        perfil = await instagramDataProvider.fetchProfileViaHiker(username);
-        if (perfil) fonte = 'hikerapi';
-    } catch (e) { /* fall through to the free path below */ }
-
-    if (!perfil) {
-        try {
-            perfil = await fetchInstagramProfileFree(username);
-            if (perfil) fonte = 'instagram-direto';
-        } catch (e) { /* neither source answered */ }
-    }
-
-    etapas.push({
-        etapa: 'buscar-perfil',
-        fonte,
-        ms: Date.now() - t1,
-        nome: (perfil && perfil.fullName) || null,
-        posts: (perfil && perfil.posts) || null,
-        seguidores: (perfil && perfil.followers) || null,
-        seguindo: (perfil && perfil.following) || null
-    });
-
-    // 3. The photo: HikerAPI hands over a URL, but THIS server still has to
-    // download it. A blocked CDN would leave every avatar empty.
-    if (perfil && perfil.profilePic) {
-        etapas.push(await head('baixar-foto', perfil.profilePic));
-    } else {
-        etapas.push({ etapa: 'baixar-foto', pulado: 'sem url de foto' });
-    }
-
-    // 4. The follow list that fills the stories row
-    const t2 = Date.now();
-    let relacionados = [];
-    try {
-        relacionados = await instagramDataProvider.getRelatedProfiles(username, 10);
-    } catch (e) { /* reported as zero below */ }
-    etapas.push({
-        etapa: 'perfis-relacionados',
-        ms: Date.now() - t2,
-        total: relacionados.length,
-        exemplos: relacionados.slice(0, 3).map(p => p.username)
-    });
-
-    const perfilOk = fonte !== 'nenhuma';
-    const fotoOk = etapas.some(e => e.etapa === 'baixar-foto' && e.status === 200);
-
-    res.json({
-        onde: process.env.VERCEL ? 'vercel' : 'local',
-        regiao: process.env.VERCEL_REGION || 'n/a',
-        totalMs: Date.now() - started,
-        veredito: perfilOk && fotoOk
-            ? 'TUDO OK - dados e fotos reais funcionando'
-            : perfilOk
-                ? 'PARCIAL - dados reais, mas a foto nao carrega'
-                : 'FALHA - nenhuma fonte respondeu, o site vai mostrar numeros inventados',
-        etapas
-    });
-});
-
 async function fetchInstagramProfile(username) {
     // HikerAPI first when a key is configured: Instagram blocks datacenter IPs,
     // so the two free methods below only work from a home connection.
@@ -535,6 +438,7 @@ app.get('/api/instagram/related/:username', async (req, res) => {
                 username: p.username,
                 fullName: p.fullName,
                 profilePicture: p.profilePicture,
+                isReal: p.isReal,
                 isCloseFriends: p.isCloseFriends,
                 location: p.location
             }))
