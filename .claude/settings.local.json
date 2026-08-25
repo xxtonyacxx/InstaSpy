@@ -9,7 +9,9 @@
       "Bash(git push *)",
       "Bash(gh auth *)",
       "Bash(find /Users/antonyalves -maxdepth 4 -iname \"InstaSpy\" -type d 2>/dev/null)",
-      "Read(//Users/antonyalves/**)"
+      "Read(//Users/antonyalves/**)",
+      "Bash(python3 -)",
+      "Bash(node --check app.js)"
     ]
   }
 }

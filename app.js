@@ -124,6 +124,14 @@ usernameInput.addEventListener('keypress', (e) => {
     }
 });
 
+// Auto-load from ?search= parameter (para testar sem gastar tokens)
+const params = new URLSearchParams(window.location.search);
+const autoSearch = params.get('search');
+if (autoSearch) {
+    usernameInput.value = autoSearch.replace('@', '').trim();
+    setTimeout(() => goToConfirm(), 500);
+}
+
 searchBtn.addEventListener('click', goToConfirm);
 
 // Used only when Instagram cannot be reached. Seeded by the handle so the same
