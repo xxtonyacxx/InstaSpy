@@ -76,6 +76,18 @@ function looksLikePublicFigure(candidate, target) {
     return PUBLIC_FIGURE_TOKENS.some(token => uname.includes(token));
 }
 
+const TOTAL_FALLBACK_AVATARS = 30;
+
+function hashUsername(username, salt = 0) {
+    let hash = 0;
+    const str = (username || '') + salt;
+    for (let i = 0; i < str.length; i++) {
+        hash = (hash << 5) - hash + str.charCodeAt(i);
+        hash |= 0;
+    }
+    return (Math.abs(hash) % TOTAL_FALLBACK_AVATARS) + 1;
+}
+
 class InstagramDataProvider {
     constructor() {
         this.hikerKey = process.env.HIKER_API_KEY || '';
@@ -112,7 +124,7 @@ class InstagramDataProvider {
         const profile = {
             username: cleanUsername,
             full_name: cleanUsername,
-            profile_pic_url: `/images/avatars/fallback/av-fallback-${(cleanUsername.length % 14) + 1}.jpg`
+            profile_pic_url: `/images/avatars/fallback/av-fallback-${hashUsername(cleanUsername)}.jpg`
         };
 
         this._setCache(cacheKey, profile);
@@ -173,7 +185,7 @@ class InstagramDataProvider {
                 username: uname,
                 fullName: p.fullName || p.full_name || uname,
                 profilePicture: p.profilePicture
-                    || `/images/avatars/fallback/av-fallback-${(uname.length % 14) + 1}.jpg`,
+                    || `/images/avatars/fallback/av-fallback-${hashUsername(uname, 7)}.jpg`,
                 // Only a picture that really came from Instagram is shown sharp;
                 // generated stand-ins stay blurred so nothing looks invented.
                 isReal: !!p.profilePicture,
@@ -202,7 +214,7 @@ class InstagramDataProvider {
         const results = [];
         const used = new Set();
         const separators = ['.', '_', ''];
-        const avatarIndices = Array.from({ length: 14 }, (_, i) => i + 1).sort(() => rng() - 0.5);
+        const avatarIndices = Array.from({ length: TOTAL_FALLBACK_AVATARS }, (_, i) => i + 1).sort(() => rng() - 0.5);
 
         const targetCount = Math.min(Math.max(limit, 5), 10);
 

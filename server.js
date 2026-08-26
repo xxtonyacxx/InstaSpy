@@ -412,7 +412,7 @@ function buildDirectChats(username, searchedProfile, related) {
             id: `chat_${i + 1}`,
             displayName: maskName(senderName, rng),
             profilePic: (sender && sender.profilePicture)
-                || `/images/avatars/fallback/av-fallback-${(i % 14) + 1}.jpg`,
+                || `/images/avatars/fallback/av-fallback-${((i * 3 + 7) % 30) + 1}.jpg`,
             lastMessage,
             time: DM_TIMES[timeIndex],
             isUnread: i < 2 ? true : rng() > 0.65

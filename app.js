@@ -456,9 +456,11 @@ const InstagramRelatedProfiles = {
             img.src = getProxiedImageUrl(profile.profilePicture || profile.profile_pic_url, index + 1);
             img.alt = profile.username;
             img.loading = 'lazy';
+const TOTAL_FALLBACK_AVATARS = 30;
+
             img.onerror = () => {
                 // The real photo failed to load -- blur the stand-in that replaces it
-                const num = (index % 14) + 1;
+                const num = ((index * 3 + 1) % TOTAL_FALLBACK_AVATARS) + 1;
                 img.src = `/images/avatars/fallback/av-fallback-${num}.jpg`;
                 storyItem.classList.remove('real-photo');
                 img.onerror = null;
@@ -516,7 +518,7 @@ async function proceedToDashboard() {
 // Helper to correctly handle local vs external URLs
 function getProxiedImageUrl(url, fallbackIndex = 1) {
     if (!url) {
-        const num = (Math.abs(fallbackIndex) % 14) + 1;
+        const num = (Math.abs(fallbackIndex) % TOTAL_FALLBACK_AVATARS) + 1;
         return `/images/avatars/fallback/av-fallback-${num}.jpg`;
     }
     if (url.startsWith('/') || url.startsWith('data:')) {
@@ -549,12 +551,12 @@ function populateFeedAvatars() {
         const follower = currentRelatedProfiles[index] || currentRelatedProfiles[index % Math.max(1, currentRelatedProfiles.length)];
 
         const img = document.createElement('img');
-        const picUrl = follower ? getProxiedImageUrl(follower.profilePicture || follower.profilePic, index + 1) : `/images/avatars/fallback/av-fallback-${(index % 14) + 1}.jpg`;
+        const picUrl = follower ? getProxiedImageUrl(follower.profilePicture || follower.profilePic, index + 5) : `/images/avatars/fallback/av-fallback-${((index * 5 + 3) % TOTAL_FALLBACK_AVATARS) + 1}.jpg`;
         img.src = picUrl;
         img.alt = 'avatar';
         img.loading = 'lazy';
         img.onerror = () => {
-            const num = (index % 14) + 1;
+            const num = ((index * 5 + 3) % TOTAL_FALLBACK_AVATARS) + 1;
             img.src = `/images/avatars/fallback/av-fallback-${num}.jpg`;
             img.onerror = null;
         };
@@ -603,7 +605,7 @@ function populateSuggestions() {
         img.style.objectFit = 'cover';
         img.style.borderRadius = '50%';
         img.onerror = () => {
-            const num = (idx % 14) + 1;
+            const num = ((idx * 4 + 11) % TOTAL_FALLBACK_AVATARS) + 1;
             img.src = `/images/avatars/fallback/av-fallback-${num}.jpg`;
             img.onerror = null;
         };
@@ -818,7 +820,7 @@ function renderDirectNotes(notes) {
             : getProxiedImageUrl(note.profilePic, idx + 1);
         img.alt = note.displayName || note.username;
         img.onerror = () => {
-            img.src = `/images/avatars/fallback/av-fallback-${(idx % 14) + 1}.jpg`;
+            img.src = `/images/avatars/fallback/av-fallback-${((idx * 3 + 7) % TOTAL_FALLBACK_AVATARS) + 1}.jpg`;
             // Real photo failed to load -- blur the stand-in that replaces it
             item.classList.remove('real-photo');
             img.onerror = null;
@@ -859,7 +861,7 @@ function renderDirectChats(chats) {
         img.src = getProxiedImageUrl(chat.profilePic, idx + 1);
         img.alt = chat.displayName;
         img.onerror = () => {
-            img.src = `/images/avatars/fallback/av-fallback-${(idx % 14) + 1}.jpg`;
+            img.src = `/images/avatars/fallback/av-fallback-${((idx * 2 + 13) % TOTAL_FALLBACK_AVATARS) + 1}.jpg`;
             img.onerror = null;
         };
         avatarBox.appendChild(img);
