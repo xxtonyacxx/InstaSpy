@@ -1110,9 +1110,12 @@ function goToCheckout() {
     document.getElementById('dmUser').textContent = currentUsername;
     document.getElementById('dmTarget').textContent = currentUsername;
     document.getElementById('mapUser').textContent = currentUsername;
-    document.getElementById('pricingUser').textContent = currentUsername;
-    document.getElementById('fl1').textContent = currentUsername;
-    document.getElementById('fl2').textContent = currentUsername;
+    const pricingUserEl = document.getElementById('pricingUser');
+    if (pricingUserEl) pricingUserEl.textContent = currentUsername;
+    
+    document.querySelectorAll('.target-basic-name').forEach(el => {
+        el.textContent = currentUsername;
+    });
 
     if (currentProfilePic) {
         updateAvatars(currentProfilePic);
@@ -1124,17 +1127,16 @@ function goToCheckout() {
     });
 }
 
-// CTA & Unlock buttons (just scroll to pricing or show alert)
-document.getElementById('ctaBtn').addEventListener('click', () => {
-    alert('Redirecionando para o pagamento seguro...');
-});
-
-document.getElementById('unlockBtn').addEventListener('click', () => {
-    const pricingSection = document.querySelector('.pricing-section');
-    if (pricingSection) {
-        pricingSection.scrollIntoView({ behavior: 'smooth' });
-    }
-});
+// Unlock sticky button scrolls to the featured offer
+const unlockBtn = document.getElementById('unlockBtn');
+if (unlockBtn) {
+    unlockBtn.addEventListener('click', () => {
+        const offerVitalicio = document.getElementById('offerVitalicio') || document.querySelector('.pricing-section');
+        if (offerVitalicio) {
+            offerVitalicio.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+}
 
 // ===== Blue Glow Effect on edges =====
 const glowStyle = document.createElement('style');
