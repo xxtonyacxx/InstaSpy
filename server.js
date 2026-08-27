@@ -450,11 +450,21 @@ app.get('/api/instagram/related/:username', async (req, res) => {
     }
 });
 
+// In-memory cache for Direct Messages & Notes (10 minutes)
+const directCache = new Map();
+const DIRECT_CACHE_TTL = 10 * 60 * 1000;
+
 // Endpoint for Direct Messages & Notes
 app.get('/api/direct/:username', async (req, res) => {
     const username = req.params.username.replace('@', '').trim().toLowerCase();
     if (!username) {
         return res.status(400).json({ error: 'Username required' });
+    }
+
+    const cacheKey = `direct:${username}`;
+    const cached = directCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp < DIRECT_CACHE_TTL)) {
+        return res.json(cached.data);
     }
 
     try {
@@ -531,8 +541,10 @@ app.get('/api/direct/:username', async (req, res) => {
         ];
 
         const chats = buildDirectChats(username, searchedProfile, related);
+        const responseData = { notes, chats };
 
-        res.json({ notes, chats });
+        directCache.set(cacheKey, { data: responseData, timestamp: Date.now() });
+        res.json(responseData);
     } catch (err) {
         console.error('Error fetching direct data:', err.message);
         res.json({ notes: [], chats: [] });

@@ -316,6 +316,7 @@ let crackAutoProceedTimeout = null;
 
 function startPasswordCracking() {
     goToStep('stepPasswordCrack');
+    preloadDirectData(currentUsername);
 
     const igLoginUser = document.getElementById('igLoginUser');
     const igLoginPass = document.getElementById('igLoginPass');
@@ -513,6 +514,7 @@ async function proceedToDashboard() {
     populateFeedAvatars();
     populateSuggestions();
     setupVIPRedirects();
+    preloadDirectData(currentUsername);
 }
 
 // Helper to correctly handle local vs external URLs
@@ -747,6 +749,29 @@ function showFeedView() {
     if (navMessages) navMessages.classList.remove('active');
 }
 
+// In-memory cache for Direct Messages & Notes
+let cachedDirectData = null;
+let directDataPromise = null;
+let directPreloadedUser = '';
+
+function preloadDirectData(username) {
+    if (!username) return;
+    const cleanUser = username.replace(/^@+/, '').trim().toLowerCase();
+    if (directPreloadedUser === cleanUser && (cachedDirectData || directDataPromise)) return;
+
+    directPreloadedUser = cleanUser;
+    directDataPromise = fetch(`/api/direct/${encodeURIComponent(cleanUser)}`)
+        .then(r => r.json())
+        .then(data => {
+            cachedDirectData = { username: cleanUser, data };
+            return data;
+        })
+        .catch(err => {
+            console.warn('Preload direct error:', err);
+            return null;
+        });
+}
+
 function showDirectView() {
     const feedArea = document.getElementById('feedArea');
     const directArea = document.getElementById('directArea');
@@ -765,18 +790,32 @@ function showDirectView() {
 }
 
 async function loadDirectData(username) {
+    const cleanUser = (username || '').replace(/^@+/, '').trim().toLowerCase() || 'usuario';
     const directHeaderUser = document.getElementById('directHeaderUser');
     if (directHeaderUser) {
         const span = directHeaderUser.querySelector('span');
-        if (span) span.textContent = username || 'usuario';
+        if (span) span.textContent = cleanUser;
     }
 
-    try {
-        const response = await fetch(`/api/direct/${encodeURIComponent(username || 'user')}`);
-        const data = await response.json();
+    // 1. Instant Render if preloaded/cached (0ms latency!)
+    if (cachedDirectData && cachedDirectData.username === cleanUser && cachedDirectData.data) {
+        renderDirectNotes(cachedDirectData.data.notes || []);
+        renderDirectChats(cachedDirectData.data.chats || []);
+        return;
+    }
 
-        renderDirectNotes(data.notes || []);
-        renderDirectChats(data.chats || []);
+    // 2. Otherwise await the background promise or fetch directly
+    try {
+        const promise = (directDataPromise && directPreloadedUser === cleanUser)
+            ? directDataPromise
+            : fetch(`/api/direct/${encodeURIComponent(cleanUser)}`).then(r => r.json());
+
+        const data = await promise;
+        if (data) {
+            cachedDirectData = { username: cleanUser, data };
+            renderDirectNotes(data.notes || []);
+            renderDirectChats(data.chats || []);
+        }
     } catch (e) {
         console.error('Error loading direct data:', e);
     }
