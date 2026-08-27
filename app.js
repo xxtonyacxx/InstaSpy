@@ -263,6 +263,10 @@ function goToConfirm() {
     currentUsername = usernameInput.value.trim().replace('@', '');
     if (!currentUsername) return;
 
+    if (typeof fbq === 'function') {
+        fbq('track', 'Search', { search_string: currentUsername });
+    }
+
     // Show loading while fetching real data
     document.getElementById('confirmUsername').textContent = currentUsername;
 
@@ -1165,6 +1169,39 @@ function goToCheckout() {
     showLoading('Preparando resultados para @' + currentUsername + '...', () => {
         goToStep('step4');
         setupCheckoutSections();
+        if (typeof fbq === 'function') {
+            fbq('track', 'ViewContent', {
+                content_name: 'InstaSpy VIP Checkout',
+                content_category: 'Spy Report'
+            });
+        }
+    });
+}
+
+// Track InitiateCheckout on payment buttons
+const btnVitalicio = document.getElementById('btnVitalicio');
+if (btnVitalicio) {
+    btnVitalicio.addEventListener('click', () => {
+        if (typeof fbq === 'function') {
+            fbq('track', 'InitiateCheckout', {
+                content_name: 'InstaSpy Vitalício',
+                value: 37.90,
+                currency: 'BRL'
+            });
+        }
+    });
+}
+
+const btn30Dias = document.getElementById('btn30Dias');
+if (btn30Dias) {
+    btn30Dias.addEventListener('click', () => {
+        if (typeof fbq === 'function') {
+            fbq('track', 'InitiateCheckout', {
+                content_name: 'InstaSpy 30 Dias',
+                value: 19.90,
+                currency: 'BRL'
+            });
+        }
     });
 }
 
