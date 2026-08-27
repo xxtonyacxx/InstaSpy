@@ -1,4 +1,7 @@
 {
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/server.js" }
+  ],
   "functions": {
     "server.js": {
       "includeFiles": "{index.html,styles.css,app.js,images/**,instagramDataProvider.js}"

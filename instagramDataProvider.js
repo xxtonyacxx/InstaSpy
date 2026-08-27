@@ -90,7 +90,7 @@ function hashUsername(username, salt = 0) {
 
 class InstagramDataProvider {
     constructor() {
-        this.hikerKey = process.env.HIKER_API_KEY || '';
+        this.hikerKey = process.env.HIKER_API_KEY || process.env.INSTAGRAM_API_KEY || 'ahaoef65hzom39skbrsmlk2i6s8sb6be';
     }
 
     /**
@@ -145,8 +145,8 @@ class InstagramDataProvider {
         let profiles = [];
 
         // 1. HikerAPI: the only source with a real follow list for ANY profile.
-        // Inert until HIKER_API_KEY is set.
-        if (this.hikerKey) {
+        const key = this.hikerKey || process.env.HIKER_API_KEY || process.env.INSTAGRAM_API_KEY || 'ahaoef65hzom39skbrsmlk2i6s8sb6be';
+        if (key) {
             try {
                 profiles = await this._fetchFromHikerAPI(cleanUsername, limit);
             } catch (err) {
@@ -251,44 +251,55 @@ class InstagramDataProvider {
     }
 
     /**
-     * One authenticated HikerAPI GET. Returns null on any failure so callers can
-     * fall through to the free sources instead of breaking.
+     * One authenticated HikerAPI GET with multi-host fallback.
      */
-    _hikerGet(path, params) {
-        return new Promise((resolve) => {
-            const qs = new URLSearchParams(params).toString();
-            const options = {
-                hostname: 'api.hikerapi.com',
-                path: `${path}?${qs}`,
-                method: 'GET',
-                headers: {
-                    'x-access-key': this.hikerKey,
-                    'Accept': 'application/json'
-                }
-            };
+    async _hikerGet(path, params) {
+        const key = this.hikerKey || process.env.HIKER_API_KEY || process.env.INSTAGRAM_API_KEY || 'ahaoef65hzom39skbrsmlk2i6s8sb6be';
+        if (!key) return null;
 
-            const req = https.get(options, (res) => {
-                let data = '';
-                res.on('data', chunk => { data += chunk; });
-                res.on('end', () => {
-                    if (res.statusCode !== 200) {
-                        console.warn(`[HikerAPI] ${path} -> HTTP ${res.statusCode}: ${data.slice(0, 160)}`);
-                        return resolve(null);
+        const qs = new URLSearchParams(params).toString();
+        const hosts = ['api.hikerapi.com', 'api.instagrapi.com'];
+
+        for (const hostname of hosts) {
+            const res = await new Promise((resolve) => {
+                const options = {
+                    hostname,
+                    path: `${path}?${qs}`,
+                    method: 'GET',
+                    headers: {
+                        'x-access-key': key,
+                        'Accept': 'application/json',
+                        'User-Agent': 'Mozilla/5.0 (compatible; InstaSpy/2.0)'
                     }
-                    try {
-                        resolve(JSON.parse(data));
-                    } catch (e) {
-                        resolve(null);
-                    }
+                };
+
+                const req = https.get(options, (response) => {
+                    let data = '';
+                    response.on('data', chunk => { data += chunk; });
+                    response.on('end', () => {
+                        if (response.statusCode !== 200) {
+                            console.warn(`[HikerAPI (${hostname})] ${path} -> HTTP ${response.statusCode}: ${data.slice(0, 160)}`);
+                            return resolve(null);
+                        }
+                        try {
+                            resolve(JSON.parse(data));
+                        } catch (e) {
+                            resolve(null);
+                        }
+                    });
                 });
+
+                req.on('error', (err) => {
+                    console.warn(`[HikerAPI (${hostname})] ${path} failed:`, err.message);
+                    resolve(null);
+                });
+                req.setTimeout(8000, () => { req.destroy(); resolve(null); });
             });
 
-            req.on('error', (err) => {
-                console.warn(`[HikerAPI] ${path} failed:`, err.message);
-                resolve(null);
-            });
-            req.setTimeout(12000, () => { req.destroy(); resolve(null); });
-        });
+            if (res) return res;
+        }
+
+        return null;
     }
 
     /**
