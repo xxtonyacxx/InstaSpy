@@ -78,6 +78,11 @@ function looksLikePublicFigure(candidate, target) {
 
 const TOTAL_FALLBACK_AVATARS = 30;
 
+function cleanApiKey(key) {
+    if (!key) return '';
+    return String(key).replace(/[^a-zA-Z0-9_-]/g, '').trim();
+}
+
 function hashUsername(username, salt = 0) {
     let hash = 0;
     const str = (username || '') + salt;
@@ -90,7 +95,9 @@ function hashUsername(username, salt = 0) {
 
 class InstagramDataProvider {
     constructor() {
-        this.hikerKey = process.env.HIKER_API_KEY || process.env.INSTAGRAM_API_KEY || 'ahaoef65hzom39skbrsmlk2i6s8sb6be';
+        this.hikerKey = cleanApiKey(process.env.HIKER_API_KEY)
+            || cleanApiKey(process.env.INSTAGRAM_API_KEY)
+            || 'ahaoef65hzom39skbrsmlk2i6s8sb6be';
     }
 
     /**
@@ -253,11 +260,13 @@ class InstagramDataProvider {
     /**
      * One authenticated HikerAPI GET with multi-host fallback.
      */
-    async _hikerGet(path, params) {
-        const key = this.hikerKey || process.env.HIKER_API_KEY || process.env.INSTAGRAM_API_KEY || 'ahaoef65hzom39skbrsmlk2i6s8sb6be';
+    async _hikerGet(path, params = {}) {
+        const rawKey = this.hikerKey || process.env.HIKER_API_KEY || process.env.INSTAGRAM_API_KEY || 'ahaoef65hzom39skbrsmlk2i6s8sb6be';
+        const key = cleanApiKey(rawKey) || 'ahaoef65hzom39skbrsmlk2i6s8sb6be';
         if (!key) return null;
 
-        const qs = new URLSearchParams(params).toString();
+        const allParams = { ...params, access_key: key };
+        const qs = new URLSearchParams(allParams).toString();
         const hosts = ['api.hikerapi.com', 'api.instagrapi.com'];
 
         for (const hostname of hosts) {
