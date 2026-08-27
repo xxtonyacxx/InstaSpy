@@ -11,21 +11,6 @@ const PORT = process.env.PORT || 8080;
 // Serve static files
 app.use(express.static(path.join(__dirname)));
 
-app.get('/api/debug-hiker', async (req, res) => {
-    try {
-        const key = instagramDataProvider.hikerKey;
-        const result = await instagramDataProvider.fetchProfileViaHiker('gabi_pnd');
-        res.json({
-            keyLength: key ? key.length : 0,
-            keyPrefix: key ? key.slice(0, 6) : null,
-            envHikerKey: process.env.HIKER_API_KEY ? process.env.HIKER_API_KEY.slice(0, 6) : null,
-            result
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message, stack: err.stack });
-    }
-});
-
 // Proxy endpoint to fetch Instagram profile data
 app.get('/api/profile/:username', async (req, res) => {
     const username = req.params.username.replace('@', '').trim();
