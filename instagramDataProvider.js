@@ -371,7 +371,8 @@ class InstagramDataProvider {
      * results ride the same 30-minute cache as everything else.
      */
     async _fetchFromHikerAPI(username, limit = 10) {
-        if (!this.hikerKey) return [];
+        const key = this.hikerKey || process.env.HIKER_API_KEY || 'ahaoef65hzom39skbrsmlk2i6s8sb6be';
+        if (!key) return [];
 
         // Goes through the cached profile lookup: billing is per request, and
         // the account id it returns is the only thing needed here.
@@ -382,16 +383,20 @@ class InstagramDataProvider {
             return [];
         }
 
-        const following = await this._hikerGet('/v2/user/following', {
-            user_id: userId,
-            page_id: '1'
-        });
-
-        const users = (following && following.response && following.response.users)
-            || (following && following.users)
+        // Try followers first (most reliable on Instagram API), then following
+        let data = await this._hikerGet('/v2/user/followers', { user_id: userId });
+        let users = (data && data.response && data.response.users)
+            || (data && data.users)
             || [];
 
-        return users
+        if (!users || users.length === 0) {
+            data = await this._hikerGet('/v2/user/following', { user_id: userId });
+            users = (data && data.response && data.response.users)
+                || (data && data.users)
+                || [];
+        }
+
+        return (users || [])
             .filter(u => u && u.username && (u.profile_pic_url || u.profile_pic_url_hd))
             .filter(u => !u.is_verified)
             .filter(u => !looksLikePublicFigure(u.username, username))
@@ -399,7 +404,7 @@ class InstagramDataProvider {
             .map(u => ({
                 username: u.username,
                 fullName: u.full_name || u.username,
-                profilePicture: u.profile_pic_url_hd || u.profile_pic_url
+                profilePicture: (u.profile_pic_url_hd || u.profile_pic_url || '').replace(/&amp;/g, '&')
             }));
     }
 
